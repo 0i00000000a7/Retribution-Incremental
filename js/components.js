@@ -1,663 +1,841 @@
-var app;
+// ============================================
+// Vue组件系统 - 组件配置管理器
+// ============================================
 
-function loadVue() {
-	// data = a function returning the content (actually HTML)
-	Vue.component('display-text', {
-		props: ['layer', 'data'],
-		template: `
-			<span class="instant" v-html="data"></span>
-		`
-	})
-
-// data = a function returning the content (actually HTML)
-	Vue.component('raw-html', {
-			props: ['layer', 'data'],
-			template: `
-				<span class="instant"  v-html="data"></span>
-			`
-		})
-
-	// Blank space, data = optional height in px or pair with width and height in px
-	Vue.component('blank', {
-		props: ['layer', 'data'],
-		template: `
-			<div class = "instant">
-			<div class = "instant" v-if="!data" v-bind:style="{'width': '8px', 'height': '17px'}"></div>
-			<div class = "instant" v-else-if="Array.isArray(data)" v-bind:style="{'width': data[0], 'height': data[1]}"></div>
-			<div class = "instant" v-else v-bind:style="{'width': '8px', 'height': data}"><br></div>
-			</div>
-		`
-	})
-
-	// Displays an image, data is the URL
-	Vue.component('display-image', {
-		props: ['layer', 'data'],
-		template: `
-			<img class="instant" v-bind:src= "data" v-bind:alt= "data">
-		`
-	})
-		
-	// data = an array of Components to be displayed in a row
-	Vue.component('row', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `
-		<div class="upgTable instant">
-			<div class="upgRow">
-				<div v-for="(item, index) in data">
-				<div v-if="!Array.isArray(item)" v-bind:is="item" :layer= "layer" v-bind:style="tmp[layer].componentStyles[item]" :key="key + '-' + index"></div>
-				<div v-else-if="item.length==3" v-bind:style="[tmp[layer].componentStyles[item[0]], (item[2] ? item[2] : {})]" v-bind:is="item[0]" :layer= "layer" :data= "item[1]" :key="key + '-' + index"></div>
-				<div v-else-if="item.length==2" v-bind:is="item[0]" :layer= "layer" :data= "item[1]" v-bind:style="tmp[layer].componentStyles[item[0]]" :key="key + '-' + index"></div>
-				</div>
-			</div>
-		</div>
-		`
-	})
-
-	// data = an array of Components to be displayed in a column
-	Vue.component('column', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `
-		<div class="upgTable instant">
-			<div class="upgCol">
-				<div v-for="(item, index) in data">
-					<div v-if="!Array.isArray(item)" v-bind:is="item" :layer= "layer" v-bind:style="tmp[layer].componentStyles[item]" :key="key + '-' + index"></div>
-					<div v-else-if="item.length==3" v-bind:style="[tmp[layer].componentStyles[item[0]], (item[2] ? item[2] : {})]" v-bind:is="item[0]" :layer= "layer" :data= "item[1]" :key="key + '-' + index"></div>
-					<div v-else-if="item.length==2" v-bind:is="item[0]" :layer= "layer" :data= "item[1]" v-bind:style="tmp[layer].componentStyles[item[0]]" :key="key + '-' + index"></div>
-				</div>
-			</div>
-		</div>
-		`
-	})
-
-	// data [other layer, tabformat for within proxy]
-	Vue.component('layer-proxy', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `
-		<div>
-			<column :layer="data[0]" :data="data[1]" :key="key + 'col'"></column>
-		</div>
-		`
-	})
-	Vue.component('infobox', {
-		props: ['layer', 'data'],
-		template: `
-		<div class="story instant" v-if="tmp[layer].infoboxes && tmp[layer].infoboxes[data]!== undefined && tmp[layer].infoboxes[data].unlocked" v-bind:style="[{'border-color': tmp[layer].color, 'border-radius': player.infoboxes[layer][data] ? 0 : '8px'}, tmp[layer].infoboxes[data].style]">
-			<button class="story-title" v-bind:style="[{'background-color': tmp[layer].color}, tmp[layer].infoboxes[data].titleStyle]"
-				v-on:click="player.infoboxes[layer][data] = !player.infoboxes[layer][data]">
-				<span class="story-toggle">{{player.infoboxes[layer][data] ? "+" : "-"}}</span>
-				<span v-html="tmp[layer].infoboxes[data].title ? tmp[layer].infoboxes[data].title : (tmp[layer].name)"></span>
-			</button>
-			<div v-if="!player.infoboxes[layer][data]" class="story-text" v-bind:style="tmp[layer].infoboxes[data].bodyStyle">
-				<span v-html="tmp[layer].infoboxes[data].body ? tmp[layer].infoboxes[data].body : 'Blah'"></span>
-			</div>
-		</div>
-		`
-	})
-
-
-	// Data = width in px, by default fills the full area
-	Vue.component('h-line', {
-		props: ['layer', 'data'],
-			template:`
-				<hr class="instant" v-bind:style="data ? {'width': data} : {}" class="hl">
-			`
-		})
-
-	// Data = height in px, by default is bad
-	Vue.component('v-line', {
-		props: ['layer', 'data'],
-		template: `
-			<div class="instant" v-bind:style="data ? {'height': data} : {}" class="vl2"></div>
-		`
-	})
-	Vue.component('challenges', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].challenges" class="upgTable">
-		<div v-for="row in (data === undefined ? tmp[layer].challenges.rows : data)" class="upgRow">
-		<div v-for="col in tmp[layer].challenges.cols">
-					<challenge v-if="tmp[layer].challenges[row*10+col]!== undefined && tmp[layer].challenges[row*10+col].unlocked" :layer = "layer" :data = "row*10+col" v-bind:style="tmp[layer].componentStyles.challenge"></challenge>
-				</div>
-			</div>
-		</div>
-		`
-	})
-
-	// data = id
-	Vue.component('challenge', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].challenges && tmp[layer].challenges[data]!== undefined && tmp[layer].challenges[data].unlocked && !(options.hideChallenges && maxedChallenge(layer, [data]) && !inChallenge(layer, [data]))"
-			v-bind:class="['challenge', challengeStyle(layer, data), player[layer].activeChallenge === data ? 'resetNotify' : '']" v-bind:style="tmp[layer].challenges[data].style">
-			<br><h3 v-html="i18n(tmp[layer].challenges[data].name, tmp[layer].challenges[data].nameI18N)"></h3><br><br>
-			<button v-bind:class="{ challenge: true, [data]: true, longUpg: true, can: true, [layer]: true }" v-bind:style="{'background-color': tmp[layer].color}" v-on:click="startChallenge(layer, data)">{{challengeButtonText(layer, data)}}</button><br><br>
-			<span v-if="layers[layer].challenges[data].fullDisplay" v-html="run(layers[layer].challenges[data].fullDisplay, layers[layer].challenges[data])"></span>
-			<span v-else>
-				<span v-html="i18n(tmp[layer].challenges[data].challengeDescription, tmp[layer].challenges[data].challengeDescriptionI18N)"></span>
-				{{i18n('目标', 'Goal', false)}}:  <span v-if="tmp[layer].challenges[data].goalDescription" v-html="tmp[layer].challenges[data].goalDescription"></span><span v-else>{{format(tmp[layer].challenges[data].goal)}} {{tmp[layer].challenges[data].currencyDisplayName ? tmp[layer].challenges[data].currencyDisplayName : i18n(modInfo.pointsName, modInfo.pointsNameI18N)}}</span><br>
-				{{i18n('奖励', 'Reward', false)}}: <span v-html="i18n(tmp[layer].challenges[data].rewardDescription, tmp[layer].challenges[data].rewardDescriptionI18N)"></span><br>
-				<span v-if="layers[layer].challenges[data].rewardDisplay!==undefined">{{i18n('当前效果', 'Currently', false)}}: <span v-html="(tmp[layer].challenges[data].rewardDisplay) ? (run(layers[layer].challenges[data].rewardDisplay, layers[layer].challenges[data])) : format(tmp[layer].challenges[data].rewardEffect)"></span></span>
-			</span>
-			<node-mark :layer='layer' :data='tmp[layer].challenges[data].marked' :offset="20" :scale="1.5"></node-mark></span>
-
-		</div>
-		`
-	})
-
-
-	Vue.component('upgrades', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].upgrades" class="upgTable">
-			<div v-for="row in (data === undefined ? tmp[layer].upgrades.rows : data)" class="upgRow">
-				<div v-for="col in tmp[layer].upgrades.cols"><div v-if="tmp[layer].upgrades[row*10+col]!== undefined && tmp[layer].upgrades[row*10+col].unlocked" class="upgAlign">
-					<upgrade :layer = "layer" :data = "row*10+col" v-bind:style="tmp[layer].componentStyles.upgrade"></upgrade>
-				</div></div>
-			</div>
-			<br>
-		</div>
-		`
-	})
-
-	// data = id
-	Vue.component('upgrade', {
-		props: ['layer', 'data'],
-		template: `
-		<button v-if="tmp[layer].upgrades && tmp[layer].upgrades[data]!== undefined && tmp[layer].upgrades[data].unlocked" :id='"upgrade-" + layer + "-" + data' v-on:click="buyUpg(layer, data)" v-bind:class="{ upgrade: true, [data]: true, [layer]: true, tooltipBox: true, upg: true, bought: hasUpgrade(layer, data), locked: (!(canAffordUpgrade(layer, data))&&!hasUpgrade(layer, data)), can: (canAffordUpgrade(layer, data)&&!hasUpgrade(layer, data))}"
-			v-bind:style="[((!hasUpgrade(layer, data) && canAffordUpgrade(layer, data)) ? {'background-color': tmp[layer].color} : {}), tmp[layer].upgrades[data].style]">
-			<span v-if="layers[layer].upgrades[data].fullDisplay" v-html="run(layers[layer].upgrades[data].fullDisplay, layers[layer].upgrades[data])"></span>
-			<span v-else>
-				<span v-if="tmp[layer].upgrades[data].title"><h3 v-html="i18n(tmp[layer].upgrades[data].title, tmp[layer].upgrades[data].titleI18N)"></h3><br></span>
-				<span v-html="i18n(tmp[layer].upgrades[data].description, tmp[layer].upgrades[data].descriptionI18N)"></span>
-				<span v-if="layers[layer].upgrades[data].effectDisplay"><br>{{i18n('当前效果', 'Currently', false)}}: <span v-html="run(i18n(layers[layer].upgrades[data].effectDisplay, layers[layer].upgrades[data].effectDisplayI18N), layers[layer].upgrades[data])"></span></span>
-				<br><br>{{i18n('价格', 'Cost', false)}}: {{ formatWhole(tmp[layer].upgrades[data].cost) }} {{(tmp[layer].upgrades[data].currencyDisplayName ? tmp[layer].upgrades[data].currencyDisplayName : (i18n(tmp[layer].resource, tmp[layer].resourceI18N)))}}
-			</span>
-			<tooltip v-if="tmp[layer].upgrades[data].tooltip" :text="i18n(tmp[layer].upgrades[data].tooltip, tmp[layer].upgrades[data].tooltipI18N)"></tooltip>
-			</button>
-		`
-	})
-
-	Vue.component('milestones', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].milestones">
-			<table>
-				<tr v-for="id in (data === undefined ? Object.keys(tmp[layer].milestones) : data)" v-if="tmp[layer].milestones[id]!== undefined && tmp[layer].milestones[id].unlocked && milestoneShown(layer, id)">
-					<milestone :layer = "layer" :data = "id" v-bind:style="tmp[layer].componentStyles.milestone"></milestone>
-				</tr>
-			</table>
-			<br>
-		</div>
-		`
-	})
-
-	// data = id
-	Vue.component('milestone', {
-		props: ['layer', 'data'],
-		template: `
-		<td v-if="tmp[layer].milestones && tmp[layer].milestones[data]!== undefined && milestoneShown(layer, data) && tmp[layer].milestones[data].unlocked" v-bind:style="[tmp[layer].milestones[data].style]" v-bind:class="{ [layer]: true, [data]: true, mile: true, milestone: !hasMilestone(layer, data), tooltipBox: true, milestoneDone: hasMilestone(layer, data)}">
-			<h3 v-if="tmp[layer].milestones[data].requirementDescription" v-html="i18n(tmp[layer].milestones[data].requirementDescription, tmp[layer].milestones[data].requirementDescriptionI18N)"></h3><br>
-			<span v-html="run(i18n(layers[layer].milestones[data].effectDescription, layers[layer].milestones[data].effectDescriptionI18N), layers[layer].milestones[data])"></span>
-			<tooltip v-if="tmp[layer].milestones[data].tooltip" :text="i18n(tmp[layer].milestones[data].tooltip, tmp[layer].milestones[data].tooltipI18N)"></tooltip>
-		<span v-if="(tmp[layer].milestones[data].toggles)&&(hasMilestone(layer, data))" v-for="toggle in tmp[layer].milestones[data].toggles"><toggle :layer= "layer" :data= "toggle" v-bind:style="tmp[layer].componentStyles.toggle"></toggle>&nbsp;</span></td></tr>
-		`
-	})
-
-	Vue.component('toggle', {
-		props: ['layer', 'data'],
-		template: `
-		<button class="smallUpg can" v-bind:style="{'background-color': tmp[data[0]].color}" v-on:click="toggleAuto(data)">{{player[data[0]][data[1]]?(i18n("已开启", "ON", false)):(i18n("已关闭", "OFF", false)}}</button>
-		`
-	})
-
-	Vue.component('prestige-button', {
-		props: ['layer', 'data'],
-		template: `
-		<button v-if="(tmp[layer].type !== 'none')" v-bind:class="{ [layer]: true, reset: true, locked: !tmp[layer].canReset, can: tmp[layer].canReset}"
-			v-bind:style="[tmp[layer].canReset ? {'background-color': tmp[layer].color} : {}, tmp[layer].componentStyles['prestige-button']]"
-			v-html="prestigeButtonText(layer)" v-on:click="doReset(layer)">
-		</button>
-		`
-	
-	})
-
-	// Displays the main resource for the layer
-	Vue.component('main-display', {
-		props: ['layer', 'data'],
-		template: `
-		<div><span v-if="player[layer].points.lt('1e1000')">{{i18n("您有", "You have", false)}} </span><h2 v-bind:style="{'color': tmp[layer].color, 'text-shadow': '0px 0px 10px ' + tmp[layer].color}">{{data ? format(player[layer].points, data) : formatWhole(player[layer].points)}}</h2> {{i18n(tmp[layer].resource, tmp[layer].resourceI18N)}}<span v-if="layers[layer].effectDescription">, <span v-html="run(i18n(layers[layer].effectDescription, layers[layer].effectDescriptionI18N), layers[layer])"></span></span><br><br></div>
-		`
-	})
-
-	// Displays the base resource for the layer, as well as the best and total values for the layer's currency, if tracked
-	Vue.component('resource-display', {
-		props: ['layer'],
-		template: `
-		<div style="margin-top: -13px">
-			<span v-if="tmp[layer].baseAmount"><br>{{i18n("您有", "You have", false)}} {{formatWhole(tmp[layer].baseAmount)}} {{i18n(tmp[layer].baseResource, tmp[layer].baseResourceI18N)}}</span>
-			<span v-if="tmp[layer].passiveGeneration"><br>{{i18n("您每秒获得", "You are gaining ", false)}} {{format(tmp[layer].resetGain.times(tmp[layer].passiveGeneration))}} {{i18n(tmp[layer].resource, tmp[layer].resourceI18N)}}{{i18n("", " per second", false)}}</span>
-			<br><br>
-			<span v-if="tmp[layer].showBest">{{i18n("您最高拥有", "Your best resource this layer is ", false)}} {{formatWhole(player[layer].best)}} {{i18n(tmp[layer].resource, tmp[layer].resourceI18N)}}<br></span>
-			<span v-if="tmp[layer].showTotal">{{i18n("您总共拥有", "You have made a total of ", false)}} {{formatWhole(player[layer].total)}} {{i18n(?tmp[layer].resource, tmp[layer].resourceI18N)}}<br></span>
-		</div>
-		`
-	})
-
-	// data = button size, in px
-	Vue.component('buyables', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].buyables" class="upgTable">
-			<respec-button v-if="tmp[layer].buyables.respec && !(tmp[layer].buyables.showRespec !== undefined && tmp[layer].buyables.showRespec == false)" :layer = "layer" v-bind:style="[{'margin-bottom': '12px'}, tmp[layer].componentStyles['respec-button']]"></respec-button>
-			<div v-for="row in (data === undefined ? tmp[layer].buyables.rows : data)" class="upgRow">
-				<div v-for="col in tmp[layer].buyables.cols"><div v-if="tmp[layer].buyables[row*10+col]!== undefined && tmp[layer].buyables[row*10+col].unlocked" class="upgAlign" v-bind:style="{'margin-left': '7px', 'margin-right': '7px',  'height': (data ? data : 'inherit'),}">
-					<buyable :layer = "layer" :data = "row*10+col"></buyable>
-				</div></div>
-				<br>
-			</div>
-		</div>
-	`
-	})
-
-	Vue.component('buyable', {
-		props: ['layer', 'data', 'size'],
-		template: `
-		<div v-if="tmp[layer].buyables && tmp[layer].buyables[data]!== undefined && tmp[layer].buyables[data].unlocked" style="display: grid">
-			<button v-bind:class="{ buyable: true, [data]: true, [layer]: true, tooltipBox: true, can: tmp[layer].buyables[data].canBuy, locked: !tmp[layer].buyables[data].canAfford, bought: player[layer].buyables[data].gte(tmp[layer].buyables[data].purchaseLimit)}"
-			v-bind:style="[tmp[layer].buyables[data].canBuy ? {'background-color': tmp[layer].color} : {}, size ? {'height': size, 'width': size} : {}, tmp[layer].componentStyles.buyable, tmp[layer].buyables[data].style]"
-			v-on:click="buyBuyable(layer, data)" @mousedown="start" @mouseleave="stop" @mouseup="stop" @touchstart="start" @touchend="stop" @touchcancel="stop">
-				<span v-if= "tmp[layer].buyables[data].title"><h2 v-html="i18n(tmp[layer].buyables[data].title, tmp[layer].buyables[data].titleI18N)"></h2><br></span>
-				<span v-bind:style="{'white-space': 'pre-line'}" v-html="run(i18n(layers[layer].buyables[data].display, layers[layer].buyables[data].displayI18N), layers[layer].buyables[data])"></span>
-				<node-mark :layer='layer' :data='tmp[layer].buyables[data].marked'></node-mark>
-                <tooltip v-if="tmp[layer].buyables[data].tooltip" :text="i18n(tmp[layer].buyables[data].tooltip, tmp[layer].buyables[data].tooltipI18N)"></tooltip>
-			</button>
-			<br v-if="(tmp[layer].buyables[data].sellOne !== undefined && !(tmp[layer].buyables[data].canSellOne !== undefined && tmp[layer].buyables[data].canSellOne == false)) || (tmp[layer].buyables[data].sellAll && !(tmp[layer].buyables[data].canSellAll !== undefined && tmp[layer].buyables[data].canSellAll == false))">
-			<sell-one :layer="layer" :data="data" v-bind:style="tmp[layer].componentStyles['sell-one']" v-if="(tmp[layer].buyables[data].sellOne)&& !(tmp[layer].buyables[data].canSellOne !== undefined && tmp[layer].buyables[data].canSellOne == false)"></sell-one>
-			<sell-all :layer="layer" :data="data" v-bind:style="tmp[layer].componentStyles['sell-all']" v-if="(tmp[layer].buyables[data].sellAll)&& !(tmp[layer].buyables[data].canSellAll !== undefined && tmp[layer].buyables[data].canSellAll == false)"></sell-all>
-		</div>
-		`,
-		data() { return { interval: false, time: 0,}},				
-		methods: {
-			start() {
-				if (!this.interval) {
-					this.interval = setInterval((function() {
-						if(this.time >= 5)
-							buyBuyable(this.layer, this.data)
-						this.time = this.time+1
-					}).bind(this), 20)}
-			},
-			stop() {
-				clearInterval(this.interval)
-				this.interval = false
-			  	this.time = 0
-			}
-		},
-	})
-
-	Vue.component('respec-button', {
-		props: ['layer', 'data'],
-		template: `
-			<div v-if="tmp[layer].buyables && tmp[layer].buyables.respec && !(tmp[layer].buyables.showRespec !== undefined && tmp[layer].buyables.showRespec == false)">
-				<div class="tooltipBox respecCheckbox"><input type="checkbox" v-model="player[layer].noRespecConfirm" ><tooltip v-bind:text="'Disable respec confirmation'"></tooltip></div>
-				<button v-on:click="respecBuyables(layer)" v-bind:class="{ longUpg: true, can: player[layer].unlocked, locked: !player[layer].unlocked }" style="margin-right: 18px">{{tmp[layer].buyables.respecText ? tmp[layer].buyables.respecText : "Respec"}}</button>
-			</div>
-			`
-	})
-	
-	Vue.component('clickables', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].clickables" class="upgTable">
-			<master-button v-if="tmp[layer].clickables.masterButtonPress && !(tmp[layer].clickables.showMasterButton !== undefined && tmp[layer].clickables.showMasterButton == false)" :layer = "layer" v-bind:style="[{'margin-bottom': '12px'}, tmp[layer].componentStyles['master-button']]"></master-button>
-			<div v-for="row in (data === undefined ? tmp[layer].clickables.rows : data)" class="upgRow">
-				<div v-for="col in tmp[layer].clickables.cols"><div v-if="tmp[layer].clickables[row*10+col]!== undefined && tmp[layer].clickables[row*10+col].unlocked" class="upgAlign" v-bind:style="{'margin-left': '7px', 'margin-right': '7px',  'height': (data ? data : 'inherit'),}">
-					<clickable :layer = "layer" :data = "row*10+col" v-bind:style="tmp[layer].componentStyles.clickable"></clickable>
-				</div></div>
-				<br>
-			</div>
-		</div>
-	`
-	})
-
-	// data = id of clickable
-	Vue.component('clickable', {
-		props: ['layer', 'data'],
-		template: `
-		<button 
-			v-if="tmp[layer].clickables && tmp[layer].clickables[data]!== undefined && tmp[layer].clickables[data].unlocked" 
-			v-bind:class="{ clickable: true, [data]: true, upg: true, [layer]: true, tooltipBox: true, can: tmp[layer].clickables[data].canClick, locked: !tmp[layer].clickables[data].canClick, metaClick: tmp[layer].clickables[data].metaClick}"
-			v-bind:style="[tmp[layer].clickables[data].style]"
-			v-on:click="if(!interval) clickClickable(layer, data)" :id='"clickable-" + layer + "-" + data' @mousedown="start" @mouseleave="stop" @mouseup="stop" @touchstart="start" @touchend="stop" @touchcancel="stop">
-			<span v-if= "tmp[layer].clickables[data].title"><h2 v-html="tmp[layer].clickables[data].title"></h2><br></span>
-			<span v-bind:style="{'white-space': 'pre-line'}" v-html="run(layers[layer].clickables[data].display, layers[layer].clickables[data])"></span>
-			<node-mark :layer='layer' :data='tmp[layer].clickables[data].marked'></node-mark>
-			<tooltip v-if="tmp[layer].clickables[data].tooltip" :text="i18n(tmp[layer].clickables[data].tooltip, tmp[layer].clickables[data].tooltipI18N)"></tooltip>
-		</button>
-		`,
-		data() { return { interval: false, time: 0,}},
-		methods: {
-			start() {
-				if (!this.interval && layers[this.layer].clickables[this.data].onHold) {
-					this.interval = setInterval((function() {
-						let c = layers[this.layer].clickables[this.data]
-						if(this.time >= 5 && run(c.canClick, c)) {
-							run(c.onHold, c)
-						}	
-						this.time = this.time+1
-					}).bind(this), 25)}
-			},
-			stop() {
-				clearInterval(this.interval)
-				this.interval = false
-			  	this.time = 0
-			}
-		},
-	})
-
-	Vue.component('master-button', {
-		props: ['layer', 'data'],
-		template: `
-		<button v-if="tmp[layer].clickables && tmp[layer].clickables.masterButtonPress && !(tmp[layer].clickables.showMasterButton !== undefined && tmp[layer].clickables.showMasterButton == false)"
-			v-on:click="run(tmp[layer].clickables.masterButtonPress, tmp[layer].clickables)" v-bind:class="{ longUpg: true, can: player[layer].unlocked, locked: !player[layer].unlocked }">{{tmp[layer].clickables.masterButtonText ? tmp[layer].clickables.masterButtonText : "Click me!"}}</button>
-	`
-	})
-
-
-	// data = button size, in px
-	Vue.component('grid', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].grid" class="upgTable">
-			<div v-for="row in (data === undefined ? tmp[layer].grid.rows : data)" class="upgRow">
-				<div v-for="col in tmp[layer].grid.cols"><div v-if="run(layers[layer].grid.getUnlocked, layers[layer].grid, row*100+col)"
-					class="upgAlign" v-bind:style="{'margin': '1px',  'height': 'inherit',}">
-					<gridable :layer = "layer" :data = "row*100+col" v-bind:style="tmp[layer].componentStyles.gridable"></gridable>
-				</div></div>
-				<br>
-			</div>
-		</div>
-	`
-	})
-
-	Vue.component('gridable', {
-		props: ['layer', 'data'],
-		template: `
-		<button 
-		v-if="tmp[layer].grid && player[layer].grid[data]!== undefined && run(layers[layer].grid.getUnlocked, layers[layer].grid, data)" 
-		v-bind:class="{ tile: true, can: canClick, locked: !canClick, tooltipBox: true,}"
-		v-bind:style="[canClick ? {'background-color': tmp[layer].color} : {}, gridRun(layer, 'getStyle', player[this.layer].grid[this.data], this.data)]"
-		v-on:click="clickGrid(layer, data)"  @mousedown="start" @mouseleave="stop" @mouseup="stop" @touchstart="start" @touchend="stop" @touchcancel="stop">
-			<span v-if= "layers[layer].grid.getTitle"><h3 v-html="gridRun(this.layer, 'getTitle', player[this.layer].grid[this.data], this.data)"></h3><br></span>
-			<span v-bind:style="{'white-space': 'pre-line'}" v-html="gridRun(this.layer, 'getDisplay', player[this.layer].grid[this.data], this.data)"></span>
-			<tooltip v-if="layers[layer].grid.getTooltip" :text="gridRun(this.layer, 'getTooltip', player[this.layer].grid[this.data], this.data)"></tooltip>
-
-		</button>
-		`,
-		data() { return { interval: false, time: 0,}},
-		computed: {
-			canClick() {
-				return gridRun(this.layer, 'getCanClick', player[this.layer].grid[this.data], this.data)}
-		},
-		methods: {
-			start() {
-				if (!this.interval && layers[this.layer].grid.onHold) {
-					this.interval = setInterval((function() {
-						if(this.time >= 5 && gridRun(this.layer, 'getCanClick', player[this.layer].grid[this.data], this.data)) {
-							gridRun(this.layer, 'onHold', player[this.layer].grid[this.data], this.data)						}	
-						this.time = this.time+1
-					}).bind(this), 50)}
-			},
-			stop() {
-				clearInterval(this.interval)
-				this.interval = false
-			  	this.time = 0
-			}
-		},
-	})
-
-	// data = button size, in px
-	Vue.component('microtabs', {
-		props: ['layer', 'data'],
-		computed: {
-			currentTab() {return player.subtabs[layer][data]}
-		},
-		template: `
-		<div v-if="tmp[layer].microtabs" :style="">
-			<div class="upgTable instant">
-				<tab-buttons :layer="layer" :data="tmp[layer].microtabs[data]" :name="data" v-bind:style="tmp[layer].componentStyles['tab-buttons']"></tab-buttons>
-				<div class="vl3"/>
-				<div class="vlBlock"/>
-			</div>
-			<br>
-			<layer-tab v-if="tmp[layer].microtabs[data][player.subtabs[layer][data]].embedLayer" :layer="tmp[layer].microtabs[data][player.subtabs[layer][data]].embedLayer" :embedded="true"></layer-tab>
-
-			<column v-else v-bind:style="tmp[layer].microtabs[data][player.subtabs[layer][data]].style" :layer="layer" :data="tmp[layer].microtabs[data][player.subtabs[layer][data]].content"></column>
-		</div>
-		`
-	})
-
-
-	// data = id of the bar
-	Vue.component('bar', {
-		props: ['layer', 'data'],
-		computed: {
-			style() {return constructBarStyle(this.layer, this.data)}
-		},
-		template: `
-		<div v-if="tmp[layer].bars && tmp[layer].bars[data].unlocked" v-bind:style="{'position': 'relative'}"><div v-bind:style="[tmp[layer].bars[data].style, style.dims, {'display': 'table'}]">
-			<div class = "overlayTextContainer barBorder" v-bind:style="[tmp[layer].bars[data].borderStyle, style.dims]">
-				<span class = "overlayText" v-bind:style="[tmp[layer].bars[data].style, tmp[layer].bars[data].textStyle]" v-html="run(i18n(layers[layer].bars[data].display, layers[layer].bars[data].displayI18N), layers[layer].bars[data])"></span>
-			</div>
-			<div class ="barBG barBorder" v-bind:style="[tmp[layer].bars[data].style, tmp[layer].bars[data].baseStyle, tmp[layer].bars[data].borderStyle,  style.dims]">
-				<div class ="fill" v-bind:style="[tmp[layer].bars[data].style, tmp[layer].bars[data].fillStyle, style.fillDims]"></div>
-			</div>
-		</div></div>
-		`
-	})
-
-
-	Vue.component('achievements', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].achievements" class="upgTable">
-			<div v-for="row in (data === undefined ? tmp[layer].achievements.rows : data)" class="upgRow">
-				<div v-for="col in tmp[layer].achievements.cols"><div v-if="tmp[layer].achievements[row*10+col]!== undefined && tmp[layer].achievements[row*10+col].unlocked" class="upgAlign">
-					<achievement :layer = "layer" :data = "row*10+col" v-bind:style="tmp[layer].componentStyles.achievement"></achievement>
-				</div></div>
-			</div>
-			<br>
-		</div>
-		`
-	})
-
-	// data = id
-	Vue.component('achievement', {
-		props: ['layer', 'data'],
-		template: `
-		<div v-if="tmp[layer].achievements && tmp[layer].achievements[data]!== undefined && tmp[layer].achievements[data].unlocked" v-bind:class="{ [layer]: true, achievement: true, tooltipBox:true, locked: !hasAchievement(layer, data), bought: hasAchievement(layer, data)}"
-			v-bind:style="achievementStyle(layer, data)">
-			<tooltip :text="
-			(tmp[layer].achievements[data].tooltip == '') ? false : hasAchievement(layer, data) ? (tmp[layer].achievements[data].doneTooltip ? tmp[layer].achievements[data].doneTooltip : (tmp[layer].achievements[data].tooltip ? (i18n(tmp[layer].achievements[data].tooltip, tmp[layer].achievements[data].tooltipI18N)) : (i18n('已完成!', 'Completed!', false))))
-			: (tmp[layer].achievements[data].goalTooltip ? tmp[layer].achievements[data].goalTooltip : (tmp[layer].achievements[data].tooltip ? (i18n(tmp[layer].achievements[data].tooltip, tmp[layer].achievements[data].tooltipI18N)) : (i18n('锁定', 'Locked', false))))
-		"></tooltip>
-			<span v-if= "tmp[layer].achievements[data].name"><br><h3 v-bind:style="tmp[layer].achievements[data].textStyle" v-html="i18n(tmp[layer].achievements[data].name, tmp[layer].achievements[data].nameI18N)"></h3><br></span>
-		</div>
-		`
-	})
-
-	// Data is an array with the structure of the tree
-	Vue.component('tree', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `<div>
-		<span class="upgRow" v-for="(row, r) in data" style="margin-top: -4px;"><table class='untable'>
-			<span v-for="(node, id) in row" style = "{width: 0px}">
-				<tree-node :layer='node' :prev='layer' :abb='i18n(tmp[node].symbol, tmp[node].symbolI18N)' :key="key + '-' + r + '-' + id"></tree-node>
-			</span>
-		</span></div>
-		`
-	})
-
-	// Data is an array with the structure of the tree
-	Vue.component('upgrade-tree', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `<thing-tree :layer="layer" :data = "data" :type = "'upgrade'"></thing-tree>`
-	})
-
-	// Data is an array with the structure of the tree
-	Vue.component('buyable-tree', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `<thing-tree :layer="layer" :data = "data" :type = "'buyable'"></thing-tree>`
-	})
-
-	// Data is an array with the structure of the tree
-	Vue.component('clickable-tree', {
-		props: ['layer', 'data'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `<thing-tree :layer="layer" :data = "data" :type = "'clickable'"></thing-tree>`
-	})
-
-	Vue.component('thing-tree', {
-		props: ['layer', 'data', 'type'],
-		computed: {
-			key() {return this.$vnode.key}
-		},
-		template: `<div>
-		<span class="upgRow" v-for="(row, r) in data"><table>
-			<span v-for="id in row" style = "{width: 0px; height: 0px;}" v-if="tmp[layer][type+'s'][id]!== undefined && tmp[layer][type+'s'][id].unlocked" class="upgAlign">
-				<div v-bind:is="type" :layer = "layer" :data = "id" v-bind:style="tmp[layer].componentStyles[type]" class = "treeThing"></div>
-			</span>
-			<tr><table><button class="treeNode hidden"></button></table></tr>
-		</span></div>
-	`
-	})
-
-
-	// Updates the value in player[layer][data]
-	Vue.component('text-input', {
-		props: ['layer', 'data'],
-		template: `
-			<input class="instant" :id="'input-' + layer + '-' + data" :value="player[layer][data].toString()" v-on:focus="focused(true)" v-on:blur="focused(false)"
-			v-on:change="player[layer][data] = toValue(document.getElementById('input-' + layer + '-' + data).value, player[layer][data])">
-		`
-	})
-
-	// Updates the value in player[layer][data][0]
-	Vue.component('slider', {
-		props: ['layer', 'data'],
-		template: `
-			<div class="tooltipBox">
-			<tooltip :text="player[layer][data[0]]"></tooltip><input type="range" v-model="player[layer][data[0]]" :min="data[1]" :max="data[2]"></div>
-		`
-	})
-
-	// Updates the value in player[layer][data[0]], options are an array in data[1]
-	Vue.component('drop-down', {
-		props: ['layer', 'data'],
-		template: `
-			<select v-model="player[layer][data[0]]">
-				<option v-for="item in data[1]" v-bind:value="item">{{item}}</option>
-			</select>
-		`
-	})
-	// These are for buyables, data is the id of the corresponding buyable
-	Vue.component('sell-one', {
-		props: ['layer', 'data'],
-		template: `
-			<button v-if="tmp[layer].buyables && tmp[layer].buyables[data].sellOne && !(tmp[layer].buyables[data].canSellOne !== undefined && tmp[layer].buyables[data].canSellOne == false)" v-on:click="run(tmp[layer].buyables[data].sellOne, tmp[layer].buyables[data])"
-				v-bind:class="{ longUpg: true, can: player[layer].unlocked, locked: !player[layer].unlocked }">{{tmp[layer].buyables.sellOneText ? tmp[layer].buyables.sellOneText : "Sell One"}}</button>
-	`
-	})
-	Vue.component('sell-all', {
-		props: ['layer', 'data'],
-		template: `
-			<button v-if="tmp[layer].buyables && tmp[layer].buyables[data].sellAll && !(tmp[layer].buyables[data].canSellAll !== undefined && tmp[layer].buyables[data].canSellAll == false)" v-on:click="run(tmp[layer].buyables[data].sellAll, tmp[layer].buyables[data])"
-				v-bind:class="{ longUpg: true, can: player[layer].unlocked, locked: !player[layer].unlocked }">{{tmp[layer].buyables.sellAllText ? tmp[layer].buyables.sellAllText : "Sell All"}}</button>
-	`
-	})
-
-	// SYSTEM COMPONENTS
-	Vue.component('node-mark', systemComponents['node-mark'])
-	Vue.component('tab-buttons', systemComponents['tab-buttons'])
-	Vue.component('tree-node', systemComponents['tree-node'])
-	Vue.component('layer-tab', systemComponents['layer-tab'])
-	Vue.component('overlay-head', systemComponents['overlay-head'])
-	Vue.component('info-tab', systemComponents['info-tab'])
-	Vue.component('options-tab', systemComponents['options-tab'])
-	Vue.component('tooltip', systemComponents['tooltip'])
-	Vue.component('particle', systemComponents['particle'])
-	Vue.component('bg', systemComponents['bg'])
-
-
-	app = new Vue({
-		el: "#app",
-		data: {
-			player,
-			tmp,
-			options,
-			Decimal,
-			format,
-			formatWhole,
-			formatTime,
-			formatSmall,
-			focused,
-			getThemeName,
-			layerunlocked,
-			doReset,
-			buyUpg,
-			buyUpgrade,
-			startChallenge,
-			milestoneShown,
-			keepGoing,
-			hasUpgrade,
-			hasMilestone,
-			hasAchievement,
-			hasChallenge,
-			maxedChallenge,
-			getBuyableAmount,
-			getClickableState,
-			inChallenge,
-			canAffordUpgrade,
-			canBuyBuyable,
-			canCompleteChallenge,
-			subtabShouldNotify,
-			subtabResetNotify,
-			challengeStyle,
-			challengeButtonText,
-			constructBarStyle,
-			constructParticleStyle,
-			VERSION,
-			LAYERS,
-			hotkeys,
-			activePopups,
-			particles,
-			mouseX,
-			mouseY,
-			shiftDown,
-			ctrlDown,
-			run,
-			gridRun,
-			
-            getPointsDisplay
-		},
-	})
+class VueComponentManager {
+  constructor() {
+    this.components = new Map();
+    this.systemComponents = new Map();
+    this.componentCategories = new Map();
+    this.registered = false;
+    this.vueInstance = null;
+  }
+  
+  // 定义组件
+  defineComponent(name, definition) {
+    if (this.components.has(name)) {
+      console.warn(`组件 ${name} 已存在，将被覆盖`);
+    }
+    
+    this.components.set(name, {
+      ...definition,
+      name,
+      timestamp: Date.now()
+    });
+    
+    return this;
+  }
+  
+  // 定义系统组件
+  defineSystemComponent(name, definition) {
+    this.systemComponents.set(name, definition);
+    return this;
+  }
+  
+  // 批量定义组件
+  defineComponents(componentMap) {
+    Object.entries(componentMap).forEach(([name, definition]) => {
+      this.defineComponent(name, definition);
+    });
+    return this;
+  }
+  
+  // 注册组件到Vue
+  registerComponents(Vue) {
+    if (!Vue || typeof Vue.component !== 'function') {
+      console.error('Vue未定义或Vue.component不是函数');
+      return false;
+    }
+    
+    // 注册普通组件
+    this.components.forEach((definition, name) => {
+      try {
+        Vue.component(name, definition);
+        console.log(`已注册组件: ${name}`);
+      } catch (error) {
+        console.error(`注册组件 ${name} 时出错:`, error);
+      }
+    });
+    
+    // 注册系统组件
+    this.systemComponents.forEach((definition, name) => {
+      try {
+        Vue.component(name, definition);
+        console.log(`已注册系统组件: ${name}`);
+      } catch (error) {
+        console.error(`注册系统组件 ${name} 时出错:`, error);
+      }
+    });
+    
+    this.registered = true;
+    return true;
+  }
+  
+  // 创建Vue实例
+  createVueInstance(Vue, el, data, methods, computed) {
+    if (!this.registered) {
+      console.warn('组件未注册，正在注册...');
+      this.registerComponents(Vue);
+    }
+    
+    try {
+      this.vueInstance = new Vue({
+        el,
+        data: () => data,
+        methods,
+        computed,
+        mounted() {
+          console.log('Vue实例已挂载');
+        },
+        updated() {
+          // 组件更新后的逻辑
+        }
+      });
+      
+      return this.vueInstance;
+    } catch (error) {
+      console.error('创建Vue实例时出错:', error);
+      return null;
+    }
+  }
+  
+  // 获取组件定义
+  getComponent(name) {
+    return this.components.get(name) || this.systemComponents.get(name);
+  }
+  
+  // 获取所有组件
+  getAllComponents() {
+    return {
+      components: Array.from(this.components.entries()),
+      systemComponents: Array.from(this.systemComponents.entries())
+    };
+  }
+  
+  // 移除组件
+  removeComponent(name) {
+    return this.components.delete(name);
+  }
+  
+  // 清除所有组件
+  clearComponents() {
+    this.components.clear();
+    this.systemComponents.clear();
+    this.registered = false;
+  }
 }
+
+// ============================================
+// 基础UI组件定义
+// ============================================
+
+class BaseComponents {
+  // 显示文本组件
+  static getDisplayText() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <span class="instant" v-html="data"></span>
+      `
+    };
+  }
+  
+  // 原始HTML组件
+  static getRawHtml() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <span class="instant" v-html="data"></span>
+      `
+    };
+  }
+  
+  // 空白组件
+  static getBlank() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div class="instant">
+          <div class="instant" v-if="!data" :style="{'width': '8px', 'height': '17px'}"></div>
+          <div class="instant" v-else-if="Array.isArray(data)" :style="{'width': data[0], 'height': data[1]}"></div>
+          <div class="instant" v-else :style="{'width': '8px', 'height': data}"><br></div>
+        </div>
+      `
+    };
+  }
+  
+  // 显示图像组件
+  static getDisplayImage() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <img class="instant" :src="data" :alt="data">
+      `
+    };
+  }
+}
+
+// ============================================
+// 布局组件定义
+// ============================================
+
+class LayoutComponents {
+  // 行布局组件
+  static getRow() {
+    return {
+      props: ['layer', 'data'],
+      computed: {
+        key() { return this.$vnode.key; }
+      },
+      template: `
+        <div class="upgTable instant">
+          <div class="upgRow">
+            <div v-for="(item, index) in data">
+              <div v-if="!Array.isArray(item)" :is="item" :layer="layer" :style="tmp[layer].componentStyles[item]" :key="key + '-' + index"></div>
+              <div v-else-if="item.length==3" :style="[tmp[layer].componentStyles[item[0]], (item[2] ? item[2] : {})]" :is="item[0]" :layer="layer" :data="item[1]" :key="key + '-' + index"></div>
+              <div v-else-if="item.length==2" :is="item[0]" :layer="layer" :data="item[1]" :style="tmp[layer].componentStyles[item[0]]" :key="key + '-' + index"></div>
+            </div>
+          </div>
+        </div>
+      `
+    };
+  }
+  
+  // 列布局组件
+  static getColumn() {
+    return {
+      props: ['layer', 'data'],
+      computed: {
+        key() { return this.$vnode.key; }
+      },
+      template: `
+        <div class="upgTable instant">
+          <div class="upgCol">
+            <div v-for="(item, index) in data">
+              <div v-if="!Array.isArray(item)" :is="item" :layer="layer" :style="tmp[layer].componentStyles[item]" :key="key + '-' + index"></div>
+              <div v-else-if="item.length==3" :style="[tmp[layer].componentStyles[item[0]], (item[2] ? item[2] : {})]" :is="item[0]" :layer="layer" :data="item[1]" :key="key + '-' + index"></div>
+              <div v-else-if="item.length==2" :is="item[0]" :layer="layer" :data="item[1]" :style="tmp[layer].componentStyles[item[0]]" :key="key + '-' + index"></div>
+            </div>
+          </div>
+        </div>
+      `
+    };
+  }
+  
+  // 水平线组件
+  static getHLine() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <hr class="instant hl" :style="data ? {'width': data} : {}">
+      `
+    };
+  }
+  
+  // 垂直线组件
+  static getVLine() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div class="instant vl2" :style="data ? {'height': data} : {}"></div>
+      `
+    };
+  }
+}
+
+// ============================================
+// 游戏功能组件定义
+// ============================================
+
+class GameComponents {
+  // 升级组件
+  static getUpgrade() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <button 
+          v-if="tmp[layer].upgrades && tmp[layer].upgrades[data]!== undefined && tmp[layer].upgrades[data].unlocked" 
+          :id="'upgrade-' + layer + '-' + data" 
+          @click="buyUpg(layer, data)"
+          :class="{
+            upgrade: true,
+            [data]: true,
+            [layer]: true,
+            tooltipBox: true,
+            upg: true,
+            bought: hasUpgrade(layer, data),
+            locked: (!canAffordUpgrade(layer, data) && !hasUpgrade(layer, data)),
+            can: (canAffordUpgrade(layer, data) && !hasUpgrade(layer, data))
+          }"
+          :style="[(!hasUpgrade(layer, data) && canAffordUpgrade(layer, data)) ? {'background-color': tmp[layer].color} : {}, tmp[layer].upgrades[data].style]"
+        >
+          <span v-if="layers[layer].upgrades[data].fullDisplay" v-html="run(layers[layer].upgrades[data].fullDisplay, layers[layer].upgrades[data])"></span>
+          <span v-else>
+            <span v-if="tmp[layer].upgrades[data].title">
+              <h3 v-html="i18n(tmp[layer].upgrades[data].title, tmp[layer].upgrades[data].titleI18N)"></h3><br>
+            </span>
+            <span v-html="i18n(tmp[layer].upgrades[data].description, tmp[layer].upgrades[data].descriptionI18N)"></span>
+            <span v-if="layers[layer].upgrades[data].effectDisplay">
+              <br>{{i18n('当前效果', 'Currently', false)}}: <span v-html="run(i18n(layers[layer].upgrades[data].effectDisplay, layers[layer].upgrades[data].effectDisplayI18N), layers[layer].upgrades[data])"></span>
+            </span>
+            <br><br>{{i18n('价格', 'Cost', false)}}: {{ formatWhole(tmp[layer].upgrades[data].cost) }} {{tmp[layer].upgrades[data].currencyDisplayName ? tmp[layer].upgrades[data].currencyDisplayName : (i18n(tmp[layer].resource, tmp[layer].resourceI18N))}}
+          </span>
+          <tooltip v-if="tmp[layer].upgrades[data].tooltip" :text="i18n(tmp[layer].upgrades[data].tooltip, tmp[layer].upgrades[data].tooltipI18N)"></tooltip>
+        </button>
+      `
+    };
+  }
+  
+  // 升级组组件
+  static getUpgrades() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div v-if="tmp[layer].upgrades" class="upgTable">
+          <div v-for="row in (data === undefined ? tmp[layer].upgrades.rows : data)" class="upgRow">
+            <div v-for="col in tmp[layer].upgrades.cols">
+              <div v-if="tmp[layer].upgrades[row*10+col]!== undefined && tmp[layer].upgrades[row*10+col].unlocked" class="upgAlign">
+                <upgrade :layer="layer" :data="row*10+col" :style="tmp[layer].componentStyles.upgrade"></upgrade>
+              </div>
+            </div>
+          </div>
+          <br>
+        </div>
+      `
+    };
+  }
+  
+  // 购买组件
+  static getBuyable() {
+    return {
+      props: ['layer', 'data', 'size'],
+      data() {
+        return {
+          interval: false,
+          time: 0
+        };
+      },
+      template: `
+        <div v-if="tmp[layer].buyables && tmp[layer].buyables[data]!== undefined && tmp[layer].buyables[data].unlocked" style="display: grid">
+          <button 
+            :class="{
+              buyable: true,
+              [data]: true,
+              [layer]: true,
+              tooltipBox: true,
+              can: tmp[layer].buyables[data].canBuy,
+              locked: !tmp[layer].buyables[data].canAfford,
+              bought: player[layer].buyables[data].gte(tmp[layer].buyables[data].purchaseLimit)
+            }"
+            :style="[
+              tmp[layer].buyables[data].canBuy ? {'background-color': tmp[layer].color} : {},
+              size ? {'height': size, 'width': size} : {},
+              tmp[layer].componentStyles.buyable,
+              tmp[layer].buyables[data].style
+            ]"
+            @click="buyBuyable(layer, data)"
+            @mousedown="start"
+            @mouseleave="stop"
+            @mouseup="stop"
+            @touchstart="start"
+            @touchend="stop"
+            @touchcancel="stop"
+          >
+            <span v-if="tmp[layer].buyables[data].title">
+              <h2 v-html="i18n(tmp[layer].buyables[data].title, tmp[layer].buyables[data].titleI18N)"></h2><br>
+            </span>
+            <span :style="{'white-space': 'pre-line'}" v-html="run(i18n(layers[layer].buyables[data].display, layers[layer].buyables[data].displayI18N), layers[layer].buyables[data])"></span>
+            <node-mark :layer="layer" :data="tmp[layer].buyables[data].marked"></node-mark>
+            <tooltip v-if="tmp[layer].buyables[data].tooltip" :text="i18n(tmp[layer].buyables[data].tooltip, tmp[layer].buyables[data].tooltipI18N)"></tooltip>
+          </button>
+          <br v-if="(tmp[layer].buyables[data].sellOne !== undefined && !(tmp[layer].buyables[data].canSellOne !== undefined && tmp[layer].buyables[data].canSellOne == false)) || (tmp[layer].buyables[data].sellAll && !(tmp[layer].buyables[data].canSellAll !== undefined && tmp[layer].buyables[data].canSellAll == false))">
+          <sell-one :layer="layer" :data="data" :style="tmp[layer].componentStyles['sell-one']" v-if="(tmp[layer].buyables[data].sellOne)&& !(tmp[layer].buyables[data].canSellOne !== undefined && tmp[layer].buyables[data].canSellOne == false)"></sell-one>
+          <sell-all :layer="layer" :data="data" :style="tmp[layer].componentStyles['sell-all']" v-if="(tmp[layer].buyables[data].sellAll)&& !(tmp[layer].buyables[data].canSellAll !== undefined && tmp[layer].buyables[data].canSellAll == false)"></sell-all>
+        </div>
+      `,
+      methods: {
+        start() {
+          if (!this.interval) {
+            this.interval = setInterval(() => {
+              if (this.time >= 5) {
+                buyBuyable(this.layer, this.data);
+              }
+              this.time = this.time + 1;
+            }, 20);
+          }
+        },
+        stop() {
+          clearInterval(this.interval);
+          this.interval = false;
+          this.time = 0;
+        }
+      }
+    };
+  }
+  
+  // 购买组组件
+  static getBuyables() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div v-if="tmp[layer].buyables" class="upgTable">
+          <respec-button v-if="tmp[layer].buyables.respec && !(tmp[layer].buyables.showRespec !== undefined && tmp[layer].buyables.showRespec == false)" :layer="layer" :style="[{'margin-bottom': '12px'}, tmp[layer].componentStyles['respec-button']]"></respec-button>
+          <div v-for="row in (data === undefined ? tmp[layer].buyables.rows : data)" class="upgRow">
+            <div v-for="col in tmp[layer].buyables.cols">
+              <div v-if="tmp[layer].buyables[row*10+col]!== undefined && tmp[layer].buyables[row*10+col].unlocked" class="upgAlign" :style="{'margin-left': '7px', 'margin-right': '7px', 'height': (data ? data : 'inherit')}">
+                <buyable :layer="layer" :data="row*10+col"></buyable>
+              </div>
+            </div>
+            <br>
+          </div>
+        </div>
+      `
+    };
+  }
+  
+  // 主要显示组件
+  static getMainDisplay() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div>
+          <span v-if="player[layer].points.lt('1e1000')">{{i18n("您有", "You have", false)}} </span>
+          <h2 :style="{'color': tmp[layer].color, 'text-shadow': '0px 0px 10px ' + tmp[layer].color}">
+            {{data ? format(player[layer].points, data) : formatWhole(player[layer].points)}}
+          </h2>
+          {{i18n(tmp[layer].resource, tmp[layer].resourceI18N)}}
+          <span v-if="layers[layer].effectDescription">, <span v-html="run(i18n(layers[layer].effectDescription, layers[layer].effectDescriptionI18N), layers[layer])"></span></span>
+          <br><br>
+        </div>
+      `
+    };
+  }
+  
+  // 重置按钮组件
+  static getPrestigeButton() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <button 
+          v-if="(tmp[layer].type !== 'none')" 
+          :class="{
+            [layer]: true,
+            reset: true,
+            locked: !tmp[layer].canReset,
+            can: tmp[layer].canReset
+          }"
+          :style="[tmp[layer].canReset ? {'background-color': tmp[layer].color} : {}, tmp[layer].componentStyles['prestige-button']]"
+          v-html="prestigeButtonText(layer)" 
+          @click="doReset(layer)"
+        ></button>
+      `
+    };
+  }
+}
+
+// ============================================
+// 组件工厂和注册器
+// ============================================
+
+class ComponentFactory {
+  static createBaseComponents() {
+    return {
+      'display-text': BaseComponents.getDisplayText(),
+      'raw-html': BaseComponents.getRawHtml(),
+      'blank': BaseComponents.getBlank(),
+      'display-image': BaseComponents.getDisplayImage()
+    };
+  }
+  
+  static createLayoutComponents() {
+    return {
+      'row': LayoutComponents.getRow(),
+      'column': LayoutComponents.getColumn(),
+      'h-line': LayoutComponents.getHLine(),
+      'v-line': LayoutComponents.getVLine()
+    };
+  }
+  
+  static createGameComponents() {
+    return {
+      'upgrade': GameComponents.getUpgrade(),
+      'upgrades': GameComponents.getUpgrades(),
+      'buyable': GameComponents.getBuyable(),
+      'buyables': GameComponents.getBuyables(),
+      'main-display': GameComponents.getMainDisplay(),
+      'prestige-button': GameComponents.getPrestigeButton()
+    };
+  }
+  
+  // 可以根据需要添加更多组件工厂方法
+}
+
+// ============================================
+// Vue组件系统 - 主系统
+// ============================================
+
+class VueComponentSystem {
+  constructor() {
+    this.componentManager = new VueComponentManager();
+    this.initialized = false;
+    this.vue = null;
+    this.app = null;
+  }
+  
+  // 初始化组件系统
+  initialize() {
+    if (this.initialized) return;
+    
+    try {
+      // 注册基础组件
+      const baseComponents = ComponentFactory.createBaseComponents();
+      this.componentManager.defineComponents(baseComponents);
+      
+      // 注册布局组件
+      const layoutComponents = ComponentFactory.createLayoutComponents();
+      this.componentManager.defineComponents(layoutComponents);
+      
+      // 注册游戏组件
+      const gameComponents = ComponentFactory.createGameComponents();
+      this.componentManager.defineComponents(gameComponents);
+      
+      // 这里可以添加更多组件注册
+      // ...
+      
+      this.initialized = true;
+      console.log('Vue组件系统初始化完成');
+    } catch (error) {
+      console.error('初始化Vue组件系统时出错:', error);
+    }
+  }
+  
+  // 加载Vue系统
+  loadVue(Vue) {
+    if (!Vue) {
+      console.error('Vue未定义');
+      return false;
+    }
+    
+    // 初始化组件
+    this.initialize();
+    
+    // 注册组件
+    if (!this.componentManager.registerComponents(Vue)) {
+      return false;
+    }
+    
+    // 创建Vue实例
+    this.createVueApp(Vue);
+    
+    return true;
+  }
+  
+  // 创建Vue应用实例
+  createVueApp(Vue) {
+    if (!Vue) return;
+    
+    // 准备Vue实例数据和方法
+    const vueData = this.getVueData();
+    const vueMethods = this.getVueMethods();
+    const vueComputed = this.getVueComputed();
+    
+    // 创建Vue实例
+    this.app = new Vue({
+      el: '#app',
+      data: vueData,
+      methods: vueMethods,
+      computed: vueComputed,
+      mounted() {
+        console.log('游戏Vue应用已挂载');
+        this.onAppMounted();
+      },
+      updated() {
+        // 组件更新后的逻辑
+      }
+    });
+    
+    // 设置全局引用
+    window.app = this.app;
+    
+    console.log('Vue应用实例创建完成');
+  }
+  
+  // 获取Vue实例数据
+  getVueData() {
+    return {
+      player,
+      tmp,
+      options,
+      Decimal,
+      format,
+      formatWhole,
+      formatTime,
+      formatSmall,
+      focused,
+      getThemeName,
+      layerunlocked,
+      doReset,
+      buyUpg,
+      buyUpgrade,
+      startChallenge,
+      milestoneShown,
+      keepGoing,
+      hasUpgrade,
+      hasMilestone,
+      hasAchievement,
+      hasChallenge,
+      maxedChallenge,
+      getBuyableAmount,
+      getClickableState,
+      inChallenge,
+      canAffordUpgrade,
+      canBuyBuyable,
+      canCompleteChallenge,
+      subtabShouldNotify,
+      subtabResetNotify,
+      challengeStyle,
+      challengeButtonText,
+      constructBarStyle,
+      constructParticleStyle,
+      VERSION,
+      LAYERS,
+      hotkeys,
+      activePopups,
+      particles,
+      mouseX,
+      mouseY,
+      shiftDown,
+      ctrlDown,
+      run,
+      gridRun,
+      getPointsDisplay
+    };
+  }
+  
+  // 获取Vue实例方法
+  getVueMethods() {
+    return {
+      // 这里可以添加Vue实例特有的方法
+      onAppMounted() {
+        console.log('Vue应用已完全挂载');
+        // 执行挂载后的初始化逻辑
+      },
+      
+      // 工具方法
+      debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      },
+      
+      // 事件处理
+      handleResize: this.debounce(() => {
+        // 处理窗口大小调整
+        if (window.TreeRenderSystem) {
+          window.TreeRenderSystem.canvasManager.handleResize();
+        }
+      }, 250)
+    };
+  }
+  
+  // 获取Vue实例计算属性
+  getVueComputed() {
+    return {
+      // 这里可以添加Vue实例的计算属性
+      currentLanguage() {
+        return options?.ch || 'en';
+      },
+      
+      gamePoints() {
+        return player?.points || new Decimal(0);
+      },
+      
+      // 更多计算属性...
+    };
+  }
+  
+  // 获取组件管理器
+  getComponentManager() {
+    return this.componentManager;
+  }
+  
+  // 获取Vue实例
+  getVueInstance() {
+    return this.app;
+  }
+  
+  // 重新加载组件
+  reloadComponents() {
+    if (this.app) {
+      this.app.$forceUpdate();
+      console.log('Vue组件已重新加载');
+    }
+  }
+  
+  // 销毁Vue实例
+  destroy() {
+    if (this.app) {
+      this.app.$destroy();
+      this.app = null;
+    }
+    
+    this.componentManager.clearComponents();
+    this.initialized = false;
+    
+    console.log('Vue组件系统已销毁');
+  }
+}
+
+// ============================================
+// Vue组件系统 - 全局实例
+// ============================================
+
+// 创建全局实例
+const VueComponentSystemInstance = new VueComponentSystem();
+
+// 兼容原loadVue函数
+function loadVue() {
+  // 检查Vue是否可用
+  if (typeof Vue === 'undefined') {
+    console.error('Vue未定义，无法加载组件系统');
+    return;
+  }
+  
+  // 加载Vue组件系统
+  return VueComponentSystemInstance.loadVue(Vue);
+}
+
+// 兼容原app变量
+let app = null;
+
+// 初始化函数
+function initializeVueComponentSystem() {
+  // 等待Vue加载
+  if (typeof Vue === 'undefined') {
+    console.warn('Vue未定义，延迟初始化组件系统');
+    setTimeout(initializeVueComponentSystem, 100);
+    return;
+  }
+  
+  // 设置全局引用
+  if (typeof window !== 'undefined') {
+    window.VueComponentSystem = VueComponentSystemInstance;
+    window.ComponentFactory = ComponentFactory;
+  }
+  
+  console.log('Vue组件系统准备就绪');
+  
+  // 注意：实际加载将在loadVue()函数中调用
+}
+
+// 自动初始化
+initializeVueComponentSystem();
+
+// 导出模块（如果使用模块系统）
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    VueComponentSystem: VueComponentSystemInstance,
+    VueComponentManager,
+    BaseComponents,
+    LayoutComponents,
+    GameComponents,
+    ComponentFactory,
+    loadVue
+  };
+}
+// 1. 手动初始化组件系统
+VueComponentSystemInstance.initialize();
+
+// 2. 添加自定义组件
+VueComponentSystemInstance.componentManager.defineComponent('custom-component', {
+  props: ['layer', 'data'],
+  template: `
+    <div class="custom-component">
+      <h3>自定义组件</h3>
+      <p>{{ data }}</p>
+    </div>
+  `,
+  methods: {
+    customMethod() {
+      console.log('自定义方法');
+    }
+  }
+});
+
+// 3. 获取组件定义
+const upgradeComponent = VueComponentSystemInstance.componentManager.getComponent('upgrade');
+console.log('升级组件定义:', upgradeComponent);
+
+// 4. 获取所有组件
+const allComponents = VueComponentSystemInstance.componentManager.getAllComponents();
+console.log('所有组件:', allComponents);
+
+// 5. 动态重新加载组件
+VueComponentSystemInstance.reloadComponents();
+
+// 6. 使用组件工厂创建新组件集
+const customComponents = ComponentFactory.createCustomComponents({
+  'my-component': {
+    props: ['data'],
+    template: '<div>{{ data }}</div>'
+  }
+});
+
+// 7. 注册新的组件集
+VueComponentSystemInstance.componentManager.defineComponents(customComponents);
+
+// 8. 手动触发Vue加载（通常由游戏框架自动调用）
+loadVue();
+
+// 创建自定义组件类别
+class CustomGameComponents {
+  // 自定义挑战组件
+  static getCustomChallenge() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div class="custom-challenge">
+          <h3>自定义挑战</h3>
+          <button @click="startCustomChallenge">开始挑战</button>
+        </div>
+      `,
+      methods: {
+        startCustomChallenge() {
+          console.log('开始自定义挑战');
+          // 自定义逻辑
+        }
+      }
+    };
+  }
+  
+  // 自定义成就组件
+  static getCustomAchievement() {
+    return {
+      props: ['layer', 'data'],
+      template: `
+        <div class="custom-achievement">
+          <span class="achievement-icon">🏆</span>
+          <span class="achievement-text">{{ data.name }}</span>
+        </div>
+      `
+    };
+  }
+}
+
+// 扩展组件工厂
+ComponentFactory.createCustomComponents = function(customMap) {
+  return customMap;
+};
+
+// 注册自定义组件
+VueComponentSystemInstance.componentManager.defineComponents({
+  'custom-challenge': CustomGameComponents.getCustomChallenge(),
+  'custom-achievement': CustomGameComponents.getCustomAchievement()
+});
+
